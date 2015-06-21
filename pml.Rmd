@@ -1,0 +1,79 @@
+### Practical Machine Learning
+####Author: Muralidhar
+
+##### Background
+In this human activity recognition research exercise, the Weight Lifting Exercises dataset was used to investigate how well an activity was performed by the wearer.The researchers first defined quality of execution and investigated three aspects that pertain to qualitative activity recognition: the problem of specifying correct execution, the automatic and robust detection of execution mistakes, and how to provide feedback on the quality of execution to the user using an on-body sensing approach and an "ambient sensing approach" 
+
+Six young health participants were asked to perform one set of 10 repetitions of the Unilateral Dumbbell Biceps Curl in five different fashions: exactly according to the specification (Class A), throwing the elbows to the front (Class B), lifting the dumbbell only halfway (Class C), lowering the dumbbell only halfway (Class D) and throwing the hips to the front (Class E). Class A corresponds to the specified execution of the exercise, while the other 4 classes correspond to common mistakes. Participants were supervised by an experienced weight lifter to make sure the execution complied to the manner they were supposed to simulate. The exercises were performed by six male participants aged between 20-28 years, with little weight lifting experience. We made sure that all participants could easily simulate the mistakes in a safe and controlled manner by using a relatively light dumbbell (1.25kg).
+
+##### Objective of the Analysis
+
+The goal of this exercise is to build a predictive model to predict the manner in which the Unilateral Dumbbell Biceps Curl is performed (Class) variable in the training set. The outcome variable is a categorical variable with five different categories and the predictors are  variables capturing weight lifting activity data of the six male participants.
+
+##### Key Question
+
+Can we use quantitative data related to weight lifting exercise activity to classify them as correct/incorrect execution and detect execution mistakes?
+
+##### Reading in and cleaning up the data
+
+We first read in the training dataset. There are a lot of columns in the dataset which  contain mostly NA values, book keeping information like subject name, timestamps, measurement windows which will be removed. The objective is to build a classifier which gives a prediction irrespective of the subject or when the data was measured. If we were to include these info, our model might customize on these variables which is unlikely in the real world scenario where the model is supposed to predict based on live data given by the sensors.
+
+We shall also remove the accompanying summary stats like skewness and kurtosis values for different time windows
+
+```{r, echo=TRUE, cache=TRUE}
+        library(ggplot2)
+        trdata <- read.csv("pml-training.csv", header = TRUE, 
+                                  stringsAsFactors = TRUE)
+        trdata <- trdata[ , apply(trdata, 2, function(x) !any(is.na(x)))] ## removing NA columns
+        trdata <- trdata[ , -c(1:7)] ## removing bookkeeping info
+        classe <- trdata$classe
+        trdata <- trdata[ , !sapply(trdata, is.factor)] ## removing summary stats
+        trdata <- cbind(trdata,classe)
+        str(trdata)
+```
+
+We will have a look at the counts for different categories of "classe" variable
+
+```{r, echo=TRUE, cache=TRUE}
+      qplot(classe, data=trdata)
+```
+
+##### Data Splitting
+
+We will split the dataset into training and testing sets.
+
+```{r, echo=FALSE}
+      library(caret)
+```
+
+```{r, echo=TRUE, cache=TRUE}
+        set.seed(1211)
+        inTrain <- createDataPartition(y=trdata$classe,
+                              p=0.7, list=FALSE)
+        training <- trdata[inTrain,]
+        testing <- trdata[-inTrain,]
+```
+
+##### Training the model
+
+We will use the training dataset to train the model using cross validation. Although Random forests are usually one of the two top performing algorithms and are very accurate, considering the time it takes to compute this algorithm for a large dataset like this one, we will tradeoff on accuracy for speed. We will use the linear discriminant analysis predictive algorithm.  
+
+```{r, echo=TRUE, cache=TRUE}
+       set.seed(1221)
+       tc <- trainControl(method="cv", number=10)
+       modFit <- train(classe~ .,data=training, method="lda", trControl=tc)
+       modFit
+       table(training$classe,predict(modFit,training))
+```
+
+##### Estimating the out of sample error rate
+
+We will use the testing dataset to estimate the out of sample error rate. 
+```{r, echo=TRUE, cache=TRUE}
+       set.seed(1231)
+       confusionMatrix(testing$classe,predict(modFit,testing)) 
+```
+
+We can estimate the out of sample error rate by the Accuracy and Kappa parameters for the cross validated test set. We see that Error rate is 1 - 0.7 = 0.3 and Kappa = 0.62
+
+
